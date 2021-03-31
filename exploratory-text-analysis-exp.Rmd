@@ -1,0 +1,100 @@
+---
+title: "Exploratory text analysis"
+author: " "
+date: "1 April 2021"
+output: html_document
+---
+
+In the last lab of the term, the goal is to use the tools you have learned during this course to explore textual data in historical books of your choice. Like most coding in data science research and project work today, this will be done in teams.
+
+Download a book or set of historical books by an author that you like or that are about a topic which you are particularly interested in. You can e.g. do this via `gutenbergr`, which is an implementation of project gutenberg.org (see e.g. [this](https://cran.r-project.org/web/packages/gutenbergr/vignettes/intro.html) tutorial), or via Google books https://books.google.com/. Then explore the data with any method covered in this course, be it a dictionary or topic model. While doing this you can divide some small tasks among the members of your group. An alternative approach is that one students shares their screen and types, while the group discusses the code together. Also feel free to use any code snippet from the lecture to speed up the text pre-processing etc.
+
+While you are exploring the books of your choice, we will move around the breakout rooms to answer questions as they emerge. Towards the end of the lab we will ask the teams in the breakout rooms whether some would like to present their findings to the group, however, there is of course no obligation to present.
+
+
+```{r}
+library(gutenbergr)
+library(dplyr)
+library(stringr)
+library(quanteda)
+```
+
+```{r}
+## Example codes are from Julia Silge's blog (https://juliasilge.com/blog/sherlock-holmes-stm/)
+library(tidyverse)
+
+# Download Sherlock Holmes book
+sherlock_raw <- gutenberg_download(1661)
+
+# Compile data by each story
+sherlock <- sherlock_raw %>%
+    mutate(story = ifelse(str_detect(text, "ADVENTURE"),
+                          text,
+                          NA)) %>%
+    fill(story) %>%
+    filter(story != "THE ADVENTURES OF SHERLOCK HOLMES") %>%
+    mutate(story = factor(story, levels = unique(story)))
+```
+
+
+```{r}
+library(tidytext)
+
+# Transpose data into words-based dataframe and remove stopwords
+tidy_sherlock <- sherlock %>%
+    mutate(line = row_number()) %>%
+    unnest_tokens(word, text) %>%
+    anti_join(stop_words) %>%
+    filter(word != "holmes")
+
+# Count and sort data by word
+tidy_sherlock %>%
+    count(word, sort = TRUE)
+
+write.csv(tidy_sherlock, file = "Sherlock.csv")
+
+# Transpose data into dfm using cast_dfm
+sherlock_dfm <- tidy_sherlock %>%
+    count(story, word, sort = TRUE) %>%
+    cast_dfm(story, word, n)
+```
+
+
+```{r}
+## similar approach to get Andersen's Fairy Tales
+
+# Download Andersen's Fairy Tales
+andersen_raw <- gutenberg_download(1597)
+
+# Compile data and group by stories
+content <- andersen_raw[10:27,]  
+content_vector <- sub("\\s+", "", content$text) %>% toupper() 
+
+andersen <- andersen_raw[-c(1:31),] %>%
+    mutate(story = ifelse(text %in% content_vector,
+                          text,
+                          NA)) %>%
+    fill(story) %>%
+    mutate(story = factor(story, levels = unique(story)))
+```
+
+
+```{r}
+# Transpose data into words-based dataframe and remove stopwords
+tidy_andersen <- andersen %>%
+    mutate(line = row_number()) %>%
+    unnest_tokens(word, text) %>%
+    anti_join(stop_words)
+
+# Count and sort data by word
+tidy_andersen %>%
+    count(word, sort = TRUE)
+
+write.csv(tidy_andersen, file = "Andersen.csv")
+
+# Transpose data into dfm using cast_dfm
+andersen_dfm <- tidy_andersen %>% 
+    count(story, word, sort = TRUE) %>%
+    cast_dfm(story, word, n)
+```
+
